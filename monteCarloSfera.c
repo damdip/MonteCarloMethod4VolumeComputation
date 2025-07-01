@@ -43,7 +43,6 @@ Point* generate_random_point(Bounds *bounds, int k) {
     return p;
 }
 
-
 // Calcola il volume dell'ipercubo k-dimensionale
 double calculate_hypercube_volume(Bounds *bounds, int k) {
     double volume = 1.0;
@@ -53,9 +52,8 @@ double calculate_hypercube_volume(Bounds *bounds, int k) {
     return volume;
 }
 
-// ESEMPI DI FUNZIONI FORMA - Modifica queste per la tua figura specifica
 
-// Esempio 1: Ipersfera k-dimensionale centrata nell'origine
+// Ipersfera k-dimensionale centrata nell'origine
 int is_inside_hypersphere(Point *p, double radius) {
     double sum_squares = 0.0;
     for (int i = 0; i < p->dimension; i++) {
@@ -100,8 +98,8 @@ double monte_carlo_volume(Bounds *bounds, int k, long n_samples,
 
     }
 
-    //in versione open mp prendere l'array dove sono stati messi i "points inside"
-    // in versione open mpi fare una reduction! 
+    //in versione open mp prendere l'array dove sono stati messi i "points inside" o fare reduction
+    // in versione open mpi fare una reduction sicuramente. 
     
     double estimated_volume = hypercube_volume * 
                              ((double)points_inside / n_samples);
@@ -115,26 +113,10 @@ double monte_carlo_volume(Bounds *bounds, int k, long n_samples,
     return estimated_volume;
 }
 
-// Funzione per testare la convergenza con diversi numeri di campioni
-void test_convergence(Bounds *bounds, int k, 
-                     int (*shape_function)(Point*)) {
-    
-    printf("\n=== TEST DI CONVERGENZA ===\n");
-    long test_samples[] = {1000, 10000, 100000, 1000000};
-    int n_tests = sizeof(test_samples) / sizeof(test_samples[0]);
-    
-    for (int i = 0; i < n_tests; i++) {
-        printf("\n--- Test con %ld campioni ---\n", test_samples[i]);
-        double volume = monte_carlo_volume(bounds, k, test_samples[i], 
-                                         shape_function);
-    }
-}
-
 // Esempio di uso per ipersfera
 double hypersphere_wrapper(Point *p) {
     return is_inside_hypersphere(p, 1.0); // Raggio = 1
 }
-
 
 int main(int argc , char** argv) {
     //Si passa da linea di comando il parametro k
@@ -168,69 +150,6 @@ int main(int argc , char** argv) {
     printf("Errore relativo: %.2f%%\n", 
            fabs(volume_sphere - volume_effettivo) / (volume_effettivo) * 100);
     
-    
-    /* ESEMPIO 2: Ellissoide 2D
-    printf("\n\nESEMPIO 2: Ellissoide 2D (semi-assi: 2, 1)\n");
-    printf("Volume teorico: %.6f\n", M_PI * 2 * 1); // π * a * b
-    
-    k = 2;
-    double semi_axes[] = {2.0, 1.0};
-    global_semi_axes = semi_axes;
-    Bounds bounds_ellipse[] = {{-2.1, 2.1}, {-1.1, 1.1}};
-    
-    double volume_ellipse = monte_carlo_volume(bounds_ellipse, k, 500000, 
-                                             ellipsoid_wrapper);
-    
-    printf("Errore relativo: %.2f%%\n", 
-           fabs(volume_ellipse - M_PI*2*1) / (M_PI*2*1) * 100);
-    
-    
-    // ESEMPIO 3: Forma personalizzata (diamante k-dimensionale)
-    printf("\n\nESEMPIO 3: Diamante 4D\n");
-    k = 4;
-    Bounds bounds_diamond[] = {{-1.1, 1.1}, {-1.1, 1.1}, 
-                              {-1.1, 1.1}, {-1.1, 1.1}};
-    
-    double volume_diamond = monte_carlo_volume(bounds_diamond, k, 500000, 
-                                             is_inside_custom_shape);
-    
-    // Test di convergenza per la forma personalizzata
-    test_convergence(bounds_diamond, k, is_inside_custom_shape);
-    */
     return 0;
 }
 
-
-
-/* Esempio 2: Ellissoide k-dimensionale
-int is_inside_ellipsoid(Point *p, double *semi_axes) {
-    double sum = 0.0;
-    for (int i = 0; i < p->dimension; i++) {
-        double term = p->coords[i] / semi_axes[i];
-        sum += term * term;
-    }
-    return sum <= 1.0;
-}
-
-// Esempio 3: Funzione generica per forme più complesse
-// Puoi modificare questa per la tua figura specifica
-int is_inside_custom_shape(Point *p) {
-    // Esempio: una forma definita da una disequazione
-    // Modifica questa funzione per la tua figura
-    
-    // Esempio semplice: un "diamante" k-dimensionale
-    double sum_abs = 0.0;
-    for (int i = 0; i < p->dimension; i++) {
-        sum_abs += fabs(p->coords[i]);
-    }
-    return sum_abs <= 1.0;
-}
-*/
-
-
-/* Esempio di uso per ellissoide
-double *global_semi_axes; // Variabile globale per l'esempio
-double ellipsoid_wrapper(Point *p) {
-    return is_inside_ellipsoid(p, global_semi_axes);
-}
-*/
