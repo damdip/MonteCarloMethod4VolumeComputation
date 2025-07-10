@@ -1,0 +1,9 @@
+
+
+MPI:
+    -   compile : mpicc -Wall mc_mpi.c -o mc_mpi -lm
+    -   run     : mpirun -n 2 ./mc_mpi 
+
+Open MP:
+    -   compile: gcc -fopenmp -std=c99  -Wall -Wpedantic   mc_omp.c -o mc_omp -lm
+    -   run     :  OMP_NUM_THREADS=1 ./mc_omp 10000000

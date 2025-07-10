@@ -74,7 +74,7 @@ int is_inside_ellipsoid(Point *p, double *semi_axes) {
     return sum <= 1.0;
 }
 
-// Esempio 3: Funzione generica per forme più complesse
+/* Esempio 3: Funzione generica per forme più complesse
 // Puoi modificare questa per la tua figura specifica
 int is_inside_custom_shape(Point *p) {
     // Esempio: una forma definita da una disequazione
@@ -87,6 +87,7 @@ int is_inside_custom_shape(Point *p) {
     }
     return sum_abs <= 1.0;
 }
+    */
 
 // Funzione principale per il metodo Monte Carlo
 double monte_carlo_volume(Bounds *bounds, int k, long n_samples, 
