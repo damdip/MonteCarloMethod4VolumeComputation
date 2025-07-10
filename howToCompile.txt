@@ -7,3 +7,14 @@ MPI:
 Open MP:
     -   compile: gcc -fopenmp -std=c99  -Wall -Wpedantic   mc_omp.c -o mc_omp -lm
     -   run     :  OMP_NUM_THREADS=1 ./mc_omp 10000000
+
+
+Command-line arguments:
+
+1) samples – number of Monte Carlo points to generate
+
+2) dim – dimension of the space (e.g., 3 for 3D)
+
+3) figure – type of figure: "sphere" or "ellipsoid"
+
+4) params – optional parameters (e.g., semiaxes for ellipsoid)
