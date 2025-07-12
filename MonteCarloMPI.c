@@ -26,13 +26,6 @@
         int dimension;
     } Point;
 
-    //Struttura per trasmettere i parametri dell'ellissoide k-dimensionale
-    typedef struct {
-        int n;             // numero di semiassi
-        double *semi_axes;    // array dei semiassi
-    } EllipsoidParams;
-
-
     /*  -------------------------------------------------
     -----------------Metodi di utilità-------------------
     ----------------------------------------------------- */
@@ -72,17 +65,7 @@
         }
         return bounds;
     }
-
-    // Calcola il volume dell'ipercubo k-dimensionale
-    double calculate_hypercube_volume(Bounds *bounds, int k) {
-        double volume = 1.0;
-        for (int i = 0; i < k; i++) {
-            volume *= (bounds[i].max - bounds[i].min);
-        }
-        return volume;
-    }
-
-    //Ipersfera k-dimensionale 
+    //Ipersphere k-dimensional 
     int is_inside_hypersphere(Point *p, double radius) {
 
         double sum_squares = 0.0;
@@ -92,8 +75,8 @@
         return sum_squares <= radius * radius;
     }
 
-    //Ellissoide k-dimensionale
-    int is_inside_ellipsoid(Point *p, int *semi_axes) {
+    //Ellipsoid k-dimensional
+    int is_inside_ellipsoid(Point *p, double *semi_axes) {
         double sum = 0.0;
         for (int i = 0; i < p->dimension; i++) {
             double term = p->coords[i] / semi_axes[i];
@@ -102,19 +85,48 @@
         return sum <= 1.0;
     }
 
-        // Esempio di uso per ipersfera
+    //Cube k-dimensional
+    int is_inside_cube(Point *p , double lato ){
+
+        for(int i = 0 ; i < p->dimension ; i++ ){
+            if(fabs(p->coords[i]) > lato/2){
+                return 0;
+            }
+        }
+        return 1;
+    }
+
+    //Parallelepiped k-dimensional
+    int is_inside_parallelepiped(Point* p, double* sides){
+
+        for( int i = 0 ; i < p->dimension ; i++ ){
+            if( fabs(p->coords[i]) > sides[i]/2){
+                return 0;
+            }
+        }
+        return 1;
+    }
+
+    
     double hypersphere_wrapper(Point *p, void* params) {
         double raggio = *((double*) params);
-        return is_inside_hypersphere(p, raggio); // Raggio = 1
+        return is_inside_hypersphere(p, raggio); 
     }
 
     double ellipsoid_wrapper(Point *p, void* params) {
-        EllipsoidParams* ellissoide = ((EllipsoidParams*) params);
-        int* lunghezze_semiassi = (int*) malloc(sizeof(int)* ellissoide->n);
-        for ( int i = 0 ;i < ellissoide->n ; i++  ){
-            lunghezze_semiassi[i] = ellissoide->semi_axes[i];
-        }
-        return is_inside_ellipsoid(p, lunghezze_semiassi);
+
+        double* semi_axes = ((double*) params);
+        return is_inside_ellipsoid(p, semi_axes);
+    }
+
+    double cube_wrapper(Point* p, void* params){
+        double lato = *((double*) params);
+        return is_inside_cube(p, lato); 
+
+    }
+    double parallelepiped_wrapper(Point* p, void* params){
+        double* sides = ((double*) params);
+        return is_inside_parallelepiped(p, sides);
     }
 
     double computeSphereVolume(int dim , double raggio){
@@ -129,8 +141,32 @@
             }
         return (pow(M_PI, dim / 2.0) / tgamma(dim / 2.0 + 1.0)) * prodotto_semiassi;
     }
+    double compute_hypercube_volume(Bounds *bounds, int k) {
+        double volume = 1.0;
+        for (int i = 0; i < k; i++) {
+            volume *= (bounds[i].max - bounds[i].min);
+        }
+        return volume;
+    }
 
-    double get_asse_max(double* array, int dimensione){
+    double compute_cube_volume(double lato, int k) {
+        double volume = 1.0;
+        for (int i = 0; i < k; i++) {
+            volume *= lato;
+        }
+        return volume;
+    }
+
+    double compute_parallelepiped_volume(double* lati , int k){
+        double volume = 1;
+        for (int i = 0 ; i < k ; i++ ){
+            volume *= lati[i];
+        }
+        return volume;
+    }
+
+
+    double get_max_from_doubles_array(double* array, int dimensione){
 
         double max = 0 ;
         for ( int i = 0 ; i < dimensione ; i++ ){
@@ -149,7 +185,7 @@
 
 
 // Funzione che stima il volume di una figura in input
-double monte_carlo_volume(Bounds *bounds, int k, long n_samples, 
+double monte_carlo_volume(Bounds *bounds, int k, long long int n_samples, 
                         double (*shape_function)(Point*, void*), void* params) {
     
 
@@ -159,10 +195,10 @@ double monte_carlo_volume(Bounds *bounds, int k, long n_samples,
     MPI_Comm_size(MPI_COMM_WORLD, &size);
                             
     long sum_of_points_inside = 0;
-    const double hypercube_volume = calculate_hypercube_volume(bounds, k);
+    const double hypercube_volume = compute_hypercube_volume(bounds, k);
     
     if ( 0 == rank){
-        printf("Inizio simulazione Monte Carlo...con %ld campioni\n", n_samples);
+        printf("Inizio simulazione Monte Carlo...con %lld campioni\n", n_samples);
         printf("Volume ipercubo: %.6f\n\n", hypercube_volume);
     }
         
@@ -175,11 +211,8 @@ double monte_carlo_volume(Bounds *bounds, int k, long n_samples,
     
     
     // Ogni processo esegue la sua porzione ( da modificare)
-    long samples_per_thread = n_samples / size;
-    long start_sample = rank * samples_per_thread;
-    long end_sample = (rank == size - 1) ? n_samples : start_sample + samples_per_thread;
-    
-    for (long i = start_sample; i < end_sample; i++) {
+    long long int samples_per_thread = n_samples / size;
+    for (long i = 0; i < samples_per_thread; i++) {
         p = generate_random_point(bounds, k, p, &seed);
         if (shape_function(p, params)) {
             my_points_inside++;
@@ -201,16 +234,19 @@ double monte_carlo_volume(Bounds *bounds, int k, long n_samples,
     
     
 
-    const double estimated_volume = hypercube_volume * 
-                            ((double)sum_of_points_inside / n_samples);
+
     if( rank == 0 ){
-    printf("\nRisultati finali:\n");
-    printf("Punti totali: %ld\n", n_samples);
-    printf("Punti dentro la figura: %ld\n", sum_of_points_inside);
-    printf("Volume stimato: %.6f\n", estimated_volume);
-    
+
+        const double estimated_volume = hypercube_volume * ((double)sum_of_points_inside / n_samples);
+        printf("\nRisultati finali:\n");
+        printf("Punti totali: %lld\n", n_samples);
+        printf("Punti dentro la figura: %ld\n", sum_of_points_inside);
+        printf("Volume stimato: %.6f\n", estimated_volume);
+        
+        return estimated_volume;
     }
-    return estimated_volume;
+    return 0;
+    
 }
 
 
@@ -238,14 +274,14 @@ double monte_carlo_volume(Bounds *bounds, int k, long n_samples,
         }
         int dim; // dimensione dello spazio vettoriale nel quale lavoriamo
         char figura[20];
-        int samples;
+        long long int samples;
         double tstart, tstop;
         if( argv[1] != NULL ){
-             samples= atoi(argv[1]);
+             samples= atof(argv[1]);
         }else{
             samples = 100000;
             if ( 0 == rank_main){
-            printf("Samples non specificati, esecuzione con %d\n", samples);
+            printf("Samples non specificati, esecuzione con %lld\n", samples);
             }    
         }
         if( argc > 2 &&  argv[2] != NULL ){
@@ -269,8 +305,8 @@ double monte_carlo_volume(Bounds *bounds, int k, long n_samples,
         }
         
         Bounds *bounds =  (Bounds *) malloc(sizeof(Bounds)*dim);
-        double volume_stimato;
-        double volume_teorico;
+        double volume_stimato = 0;
+        double volume_teorico = 0;
 
         if( strcmp(figura, "sfera") == 0 && argv[4] != NULL ){
             
@@ -284,6 +320,7 @@ double monte_carlo_volume(Bounds *bounds, int k, long n_samples,
             }else{
                 raggio = atof(argv[4]);
             }
+
             
             //inizializzazione iper-cubo
             bounds = boundsBuilder( bounds, dim ,(-raggio)-1 , raggio +1 );
@@ -300,16 +337,15 @@ double monte_carlo_volume(Bounds *bounds, int k, long n_samples,
             volume_stimato = monte_carlo_volume(bounds, dim, samples,hypersphere_wrapper, &raggio);
             tstop =MPI_Wtime();
 
-            //stampa statistiche
-            printStats(volume_stimato , volume_teorico);            
+                       
+            //printStats(volume_stimato , volume_teorico);
+                       
         }
         else if(strcmp(figura, "ellisse") == 0 && argv[4] != NULL ){
             //definizione parametri
-            double asse_max;
+            double asse_max = 0;
             int numero_parametri_ellisse = argc - 4; // 4 sono i primi parametri: nome del programma, numero samples , dimensioni, numero della figura
-            asse_max = 0 ;
             double * array_of_semi_axes = (double*) malloc(sizeof(double)*dim);
-            
             //gestione dati incompleti
             if ( numero_parametri_ellisse != dim ){
                 printf("Lunghezze dei semiassi non definite interamente o correttamente\n");
@@ -329,39 +365,108 @@ double monte_carlo_volume(Bounds *bounds, int k, long n_samples,
                     return 1;
                 }
             }
-            asse_max = get_asse_max(array_of_semi_axes, dim);
+            asse_max = get_max_from_doubles_array(array_of_semi_axes, dim);
 
             //costruzione ipercubo
             bounds = boundsBuilder( bounds, dim, (- asse_max)-1 , asse_max +1);
 
-            //inizializzazione struttura per i parametri dell'ellisse
-            EllipsoidParams* ellissoide = (EllipsoidParams*) malloc(sizeof(EllipsoidParams));
-            ellissoide->n = dim;
-            ellissoide->semi_axes = array_of_semi_axes;
-            if ( 0 == rank_main){
-                printf("Elissoide %dD \n", ellissoide->n);
-            }
+            
+            printf("Elissoide %dD \n", dim);
             //calcolo volume ellissoide
             volume_teorico = computeEllipsoidVolume(dim , array_of_semi_axes);
-            if ( 0 == rank_main){
-                printf("Volume teorico: %.6f\n", volume_teorico); 
-            }
+            printf("Volume teorico: %.6f\n", volume_teorico); 
+
             //calcolo volume stimato
-            tstart = MPI_Wtime();
-            volume_stimato = monte_carlo_volume(bounds, dim, samples, ellipsoid_wrapper, ellissoide);
-            tstop =MPI_Wtime();
+            tstart =   MPI_Wtime();
+            volume_stimato = monte_carlo_volume(bounds, dim, samples, ellipsoid_wrapper, array_of_semi_axes);
+            tstop =   MPI_Wtime();
             
 
             //stampa statistiche
-            if( 0 == rank_main ){
-                printStats(volume_stimato , volume_teorico);
-            }
+            //printStats(volume_stimato , volume_teorico);
+
             //libero la memoria
             free(array_of_semi_axes);
-            free(ellissoide);
+        }
+        else if (strcmp(figura, "cubo") == 0  && argv[4] != NULL){
+            
+            //Acquisizione lato, o inizializzazione "statica"
+            double lato;
+            if ( argc < 4){
+                lato = 2;
+                printf("lato non specificato, esecuzione con lato = %f\n", lato);
+            }else{
+                lato = atof(argv[4]);
+            }
+            
+            //inizializzazione iper-cubo
+            bounds = boundsBuilder( bounds, dim ,(-lato/2)-1 , (lato/2) +1 );
+            printf("Cubo %dD (lato = %f)\n", dim, lato);
+            
+            //calcolo volume teorico dell' ipersfera
+            volume_teorico = compute_cube_volume(lato, dim);
+            printf("Volume teorico: %.6f\n", volume_teorico); 
+            
+            //calcolo volume stimato con metodo di montecarlo
+            tstart =  MPI_Wtime();
+            volume_stimato = monte_carlo_volume(bounds, dim, samples,cube_wrapper, &lato);
+            tstop =  MPI_Wtime();
+
+            //stampa statistiche
+            //printStats(volume_stimato , volume_teorico);   
+        }
+        else if(strcmp(figura, "parallelepipedo") == 0  && argv[4] != NULL) {
+            //definizione parametri
+            double greater_side = 0;
+            int numero_parametri_parallelepipedo= argc - 4; // 4 sono i primi parametri
+            double * array_of_sides = (double*) malloc(sizeof(double)*dim);
+            
+            //gestione dati incompleti
+            if ( numero_parametri_parallelepipedo != dim ){
+                printf("Lunghezze dei semiassi non definite interamente o correttamente\n");
+                free(array_of_sides);
+                return 1;
+            }
+
+            //acquisizione parametri semiassi
+            for ( int i= 0 ; i < dim ; i++ ){
+                 
+                if ( atof(argv[4+i]) > 0 ){
+                array_of_sides[i] = atof(argv[4+i]);
+                }
+                else{
+                    printf("I valori dei lati devono essere positivi!!\n");
+                    free(array_of_sides);
+                    return 1;
+                }
+            }
+            greater_side = get_max_from_doubles_array(array_of_sides, dim);
+
+            //costruzione ipercubo
+            bounds = boundsBuilder( bounds, dim, -(greater_side/2)-1 , (greater_side/2) +1);
+            
+            //calcolo volume ellissoide
+            volume_teorico = compute_parallelepiped_volume (array_of_sides, dim);
+            printf("Volume teorico: %.6f\n", volume_teorico); 
+
+            //calcolo volume stimato
+            tstart =   MPI_Wtime();
+            volume_stimato = monte_carlo_volume(bounds, dim, samples, parallelepiped_wrapper, array_of_sides);
+            tstop =   MPI_Wtime();
+            
+
+            //stampa statistiche
+            //printStats(volume_stimato , volume_teorico);
+
+            //libero la memoria
+            free(array_of_sides);
         }
         else{
             printf("%s non e' una figura ammessa", figura);
+        }
+
+        if(volume_stimato != 0 && volume_teorico !=0  && rank_main == 0 ){
+             printStats(volume_stimato , volume_teorico);
         }
 
         free(bounds);
